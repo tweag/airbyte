@@ -1,0 +1,6 @@
+{
+    "repo_url": "https://github.com/tweag/www",
+    "graphql_endpoint": "http://localhost:12123/__graphql",
+    "graphql_query": "{ allMarkdownRemark { edges { node { id } } } }"
+  }
+  

@@ -1,0 +1,19 @@
+documentationUrl: https://docsurl.com
+connectionSpecification:
+  $schema: http://json-schema.org/draft-07/schema#
+  title: Tweag Blog Spec
+  type: object
+  required:
+    - repo_url
+    - graphql_endpoint
+    - graphql_query
+  properties:
+    repo_url:
+      type: string
+      description: "The URL of the GitHub repository"
+    graphql_endpoint:
+      type: string
+      description: "The GraphQL endpoint of the Gatsby server"
+    graphql_query:
+      type: string
+      description: "The GraphQL query to run"
