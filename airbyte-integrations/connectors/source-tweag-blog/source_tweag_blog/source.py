@@ -4,7 +4,17 @@
 
 
 from abc import ABC
-from typing import Any, Iterable, List, Mapping, MutableMapping, Optional, Tuple, Generator, Union
+from typing import (
+    Any,
+    Iterable,
+    List,
+    Mapping,
+    MutableMapping,
+    Optional,
+    Tuple,
+    Generator,
+    Union,
+)
 
 import requests
 from airbyte_cdk.sources import AbstractSource
@@ -31,6 +41,7 @@ The approach here is not authoritative, and devs are free to use their own judge
 There are additional required TODOs in the files within the integration_tests folder and the spec.yaml file.
 """
 
+
 def clone_repo(repo_url: str, clone_dir: str):
     if os.path.exists(clone_dir):
         shutil.rmtree(clone_dir)
@@ -39,66 +50,77 @@ def clone_repo(repo_url: str, clone_dir: str):
 
 
 def start_gatsby_server(repo_dir: str):
-    subprocess.Popen(["npx", "gatsby", "develop", "-H", "0.0.0.0", "--port=12123"], cwd=repo_dir)
+    subprocess.Popen(
+        ["npx", "gatsby", "develop", "-H", "0.0.0.0", "--port=12123"], cwd=repo_dir
+    )
 
 
 def run_graphql_query(endpoint: str, query: str):
-    response = requests.post(endpoint, json={'query': query})
+    response = requests.post(endpoint, json={"query": query})
     response.raise_for_status()
     return response.json()
 
 
 # # Basic full refresh stream
-# class TweagBlogStream(Stream):
-#     def __init__(self, config: Mapping[str, Any]):
-#         super().__init__(config=config)
-#         self.endpoint = config["graphql_endpoint"]
-#         self.query = config["graphql_query"]
-#     def read_records(self, sync_mode: SyncMode, cursor_field: List[str] = None, stream_slice: Mapping[str, Any] = None) -> Generator[Mapping[str, Any], None, None]:
-#         response = run_graphql_query(self.endpoint, self.query)
-#         for record in response["data"]:
-#             yield record
-#     @property
-#     def primary_key(self) -> Optional[Union[str, List[str], List[List[str]]]]:
-#         return self._primary_key
-
 class TweagBlogStream(HttpStream, ABC):
-    def __init__(self, name: str, path: str, primary_key: Union[str, List[str]], data_field: str, **kwargs: Any) -> None:
-        self._name = name
-        self._path = path
-        self._primary_key = primary_key
-        self._data_field = data_field
+    def __init__(self, config: Mapping[str, Any], **kwargs: Any) -> None:
+        self._name = config["name"]
+        self._path = config["graphql_endpoint"]
+        self._primary_key = "id"
+        self._data_field = config["data_field"]
+        self.query = config["graphql_query"]
         super().__init__(**kwargs)
 
     url_base = "http://localhost:12123/__graphql"
 
-    def next_page_token(self, response: requests.Response) -> Optional[Mapping[str, Any]]:
+    def next_page_token(
+        self, response: requests.Response
+    ) -> Optional[Mapping[str, Any]]:
         return None
 
-    def request_params(
-        self, stream_state: Mapping[str, Any], stream_slice: Mapping[str, any] = None, next_page_token: Mapping[str, Any] = None
-    ) -> MutableMapping[str, Any]:
-        return {"include": "response_count,date_created,date_modified,language,question_count,analyze_url,preview,collect_stats"}
+    @property
+    def http_method(self) -> str:
+        return "POST"
 
-    def parse_response(self, response: requests.Response, **kwargs) -> Iterable[Mapping]:
-        # content_type = response.headers.get('Content-Type')
-        # if 'application/json' in content_type:
-        #     try:
-        #         response_json = response.json()
-        #         yield from response_json.get("data", [])
-        #     except requests.exceptions.JSONDecodeError:
-        #         self.logger.error(f"Failed to parse response as JSON: {response.text}")
-        #         raise
-        # else:
-        #     self.logger.error(f"Unexpected content type {content_type}: {response.text}")
-        #     raise ValueError(f"Unexpected content type: {content_type}")
-        html_content = response.text
-        yield {"html_content": html_content}
-        # response_json = response.json()
-        # if self._data_field:
-        #     yield from response_json.get(self._data_field, [])
-        # else:
-        #     yield from response_json
+    def request_body_json(
+        self,
+        stream_state: Mapping[str, Any] = None,
+        stream_slice: Mapping[str, Any] = None,
+        next_page_token: Mapping[str, Any] = None,
+    ) -> Optional[Mapping]:
+        # Define your GraphQL query here
+        query = self.query
+        return {"query": query}
+
+    def parse_response(
+        self, response: requests.Response, **kwargs
+    ) -> Iterable[Mapping]:
+        try:
+            response_json = response.json()
+
+            # Navigate to the data field
+            data = response_json
+            keys = self._data_field.split(".")
+
+            for key in keys:
+                if isinstance(data, list):
+                    # If data is a list, iterate over each element
+                    data = [item.get(key, {}) for item in data]
+                else:
+                    # Otherwise, just get the key from the dictionary
+                    data = data.get(key, {})
+
+            # If the final result is a list, yield each item individually
+            if isinstance(data, list):
+                for item in data:
+                    yield item
+            else:
+                # Otherwise, yield the single result
+                yield data
+
+        except requests.exceptions.JSONDecodeError:
+            self.logger.error(f"Failed to parse response as JSON: {response.text}")
+            raise
 
     @property
     def name(self) -> str:
@@ -133,5 +155,5 @@ class SourceTweagBlog(AbstractSource):
         # return [TweagBlogStream(config=config)]
         auth = None
         start_gatsby_server("/tmp/repo")
-        time.sleep(10)
-        return [TweagBlogStream(name="tweag_blog", path="http://localhost:12123/__graphql", primary_key="id", data_field="data", authenticator=auth)]
+        time.sleep(20)
+        return [TweagBlogStream(config=config, authenticator=auth)]

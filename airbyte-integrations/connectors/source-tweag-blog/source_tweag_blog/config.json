@@ -1,6 +1,8 @@
 {
+    "name": "tweag_blog",
     "repo_url": "https://github.com/tweag/www",
     "graphql_endpoint": "http://localhost:12123/__graphql",
-    "graphql_query": "{ allMarkdownRemark { edges { node { id } } } }"
+    "graphql_query": "{ allMarkdownRemark( filter: { fileAbsolutePath: { regex: \"/content/blog/\" }}) { edges { node { frontmatter { title author description tags } } } } }",
+    "data_field": "data.allMarkdownRemark.edges.node.frontmatter"
   }
   
