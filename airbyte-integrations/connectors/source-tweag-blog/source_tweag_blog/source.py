@@ -154,6 +154,8 @@ class SourceTweagBlog(AbstractSource):
     def streams(self, config: Mapping[str, Any]) -> List[Stream]:
         # return [TweagBlogStream(config=config)]
         auth = None
+        clone_repo(config["repo_url"], "/tmp/repo")
+        time.sleep(20)
         start_gatsby_server("/tmp/repo")
         time.sleep(20)
         return [TweagBlogStream(config=config, authenticator=auth)]

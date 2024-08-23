@@ -5,6 +5,9 @@
     "id": {
       "type": ["null", "string"]
     },
+    "name": {
+      "type": "string"
+    },
     "repo_url": {
       "type": "string"
     },
@@ -12,6 +15,9 @@
       "type": "string"
     },
     "graphql_query": {
+      "type": "string"
+    },
+    "data_field": {
       "type": "string"
     }
   }
