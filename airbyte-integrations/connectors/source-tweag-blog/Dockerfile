@@ -6,9 +6,6 @@ RUN apt-get update && \
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs
 
-# Install global npm packages, including Gatsby CLI
-# RUN npm install -g gatsby-cli
-
 # Copy the application code
 COPY . /airbyte/integration_code
 
