@@ -1,24 +1,28 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
-  "type": "object",
+  "additionalProperties": true,
   "properties": {
+    "author": {
+      "type": "string"
+    },
+    "description": {
+      "type": [
+        "null",
+        "string"
+      ]
+    },
+    "tags": {
+      "items": {
+        "type": "string"
+      },
+      "type": "array"
+    },
+    "title": {
+      "type": "string"
+    },
     "id": {
-      "type": ["null", "string"]
-    },
-    "name": {
-      "type": "string"
-    },
-    "repo_url": {
-      "type": "string"
-    },
-    "graphql_endpoint": {
-      "type": "string"
-    },
-    "graphql_query": {
-      "type": "string"
-    },
-    "data_field": {
       "type": "string"
     }
-  }
+  },
+  "type": "object"
 }

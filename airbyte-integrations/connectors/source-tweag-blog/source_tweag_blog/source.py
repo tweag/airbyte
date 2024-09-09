@@ -113,9 +113,13 @@ class TweagBlogStream(HttpStream, ABC):
             # If the final result is a list, yield each item individually
             if isinstance(data, list):
                 for item in data:
+                    primary_key_value = f"{item.get('title')}_{item.get('author')}"
+                    item["id"] = primary_key_value 
                     yield item
             else:
                 # Otherwise, yield the single result
+                primary_key_value = f"{data.get('title')}_{data.get('author')}"
+                data["id"] = primary_key_value 
                 yield data
 
         except requests.exceptions.JSONDecodeError:
