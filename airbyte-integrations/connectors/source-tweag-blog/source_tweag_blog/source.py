@@ -24,45 +24,18 @@ from airbyte_cdk.sources.streams.http.requests_native_auth import TokenAuthentic
 from airbyte_cdk.models import SyncMode
 import subprocess
 import os
-import shutil
 import time
-
-"""
-TODO: Most comments in this class are instructive and should be deleted after the source is implemented.
-
-This file provides a stubbed example of how to use the Airbyte CDK to develop both a source connector which supports full refresh or and an
-incremental syncs from an HTTP API.
-
-The various TODOs are both implementation hints and steps - fulfilling all the TODOs should be sufficient to implement one basic and one incremental
-stream from a source. This pattern is the same one used by Airbyte internally to implement connectors.
-
-The approach here is not authoritative, and devs are free to use their own judgement.
-
-There are additional required TODOs in the files within the integration_tests folder and the spec.yaml file.
-"""
+import signal
+import logging
 
 
-def clone_repo(repo_url: str, clone_dir: str):
-    if os.path.exists(clone_dir):
-        shutil.rmtree(clone_dir)
-    subprocess.run(["git", "clone", repo_url, clone_dir], check=True)
-    subprocess.run(["git", "checkout", "master"], cwd=clone_dir, check=True)
-
-
-def start_gatsby_server(repo_dir: str):
-    subprocess.Popen(
-        ["npx", "gatsby", "develop", "-H", "0.0.0.0", "--port=12123"], cwd=repo_dir
-    )
-
-
-def run_graphql_query(endpoint: str, query: str):
-    response = requests.post(endpoint, json={"query": query})
-    response.raise_for_status()
-    return response.json()
+logger = logging.getLogger("airbyte")
 
 
 # # Basic full refresh stream
 class TweagBlogStream(HttpStream, ABC):
+    """The Tweag Blog Stream"""
+
     def __init__(self, config: Mapping[str, Any], **kwargs: Any) -> None:
         self._name = config["name"]
         self._path = config["graphql_endpoint"]
@@ -76,10 +49,12 @@ class TweagBlogStream(HttpStream, ABC):
     def next_page_token(
         self, response: requests.Response
     ) -> Optional[Mapping[str, Any]]:
+        """Return the token required to fetch the next page."""
         return None
 
     @property
     def http_method(self) -> str:
+        """The HTTP method that should be used to make the request."""
         return "POST"
 
     def request_body_json(
@@ -88,13 +63,14 @@ class TweagBlogStream(HttpStream, ABC):
         stream_slice: Mapping[str, Any] = None,
         next_page_token: Mapping[str, Any] = None,
     ) -> Optional[Mapping]:
-        # Define your GraphQL query here
+        """Return a dictionary representing the JSON body of the request."""
         query = self.query
         return {"query": query}
 
     def parse_response(
         self, response: requests.Response, **kwargs
     ) -> Iterable[Mapping]:
+        """Parse the response and return an iterator of result rows."""
         try:
             response_json = response.json()
 
@@ -114,12 +90,12 @@ class TweagBlogStream(HttpStream, ABC):
             if isinstance(data, list):
                 for item in data:
                     primary_key_value = f"{item.get('title')}_{item.get('author')}"
-                    item["id"] = primary_key_value 
+                    item["id"] = primary_key_value
                     yield item
             else:
                 # Otherwise, yield the single result
                 primary_key_value = f"{data.get('title')}_{data.get('author')}"
-                data["id"] = primary_key_value 
+                data["id"] = primary_key_value
                 yield data
 
         except requests.exceptions.JSONDecodeError:
@@ -128,6 +104,7 @@ class TweagBlogStream(HttpStream, ABC):
 
     @property
     def name(self) -> str:
+        """Name of this stream."""
         return self._name
 
     def path(
@@ -137,29 +114,114 @@ class TweagBlogStream(HttpStream, ABC):
         stream_slice: Optional[Mapping[str, Any]] = None,
         next_page_token: Optional[Mapping[str, Any]] = None,
     ) -> str:
+        """The path to the API endpoint."""
         return self._path
 
     @property
     def primary_key(self) -> Optional[Union[str, List[str], List[List[str]]]]:
+        """Returns the primary key(s) of the stream as a tuple of strings."""
         return self._primary_key
 
 
 # Source
 class SourceTweagBlog(AbstractSource):
-    def check_connection(self, logger, config) -> Tuple[bool, any]:
+    """The Tweag Blog Data Source"""
+
+    def clone_repo(self, repo_url: str, clone_dir: str):
+        """Clone the repository to the specified directory"""
+        if os.path.exists(clone_dir):
+            subprocess.run(
+                ["git", "checkout", "master"],
+                cwd=clone_dir,
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            subprocess.run(
+                ["git", "pull"],
+                cwd=clone_dir,
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+        else:
+            subprocess.run(
+                ["git", "clone", repo_url, clone_dir],
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            subprocess.run(
+                ["git", "checkout", "master"],
+                cwd=clone_dir,
+                check=True,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+
+    def start_gatsby_server(self, repo_dir: str) -> subprocess.Popen:
+        """Start the Gatsby server"""
+        if not os.path.exists(os.path.join(repo_dir, "node_modules", ".bin", "gatsby")):
+            subprocess.Popen(
+                ["npm", "install", "--legacy-peer-deps"],
+                cwd=repo_dir,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            ).wait()
+        gatsby_process = subprocess.Popen(
+            ["npx", "gatsby", "develop", "-H", "0.0.0.0", "--port=12123"],
+            cwd=repo_dir,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        return gatsby_process
+
+    def free_port(self, port) -> None:
+        """Free the port by killing the process using it"""
+        cmd = f"lsof -t -i:{port}"
+        process = subprocess.Popen(
+            cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE
+        )
+        stdout, _ = process.communicate()
+
+        if stdout:
+            # Port is in use, get the PID and terminate it
+            pids = stdout.decode().strip().split("\n")
+            for p in pids:
+                if p:
+                    os.kill(int(p), signal.SIGKILL)
+
+    def stop_gatsby_server(self, gatsby_process) -> None:
+        """Stop the Gatsby server"""
+        gatsby_process.terminate()
         try:
-            clone_repo(config["repo_url"], "/tmp/repo")
-            start_gatsby_server("/tmp/repo")
+            gatsby_process.wait(timeout=10)
+        except subprocess.TimeoutExpired:
+            gatsby_process.kill()
+        self.free_port(12123)
+
+    def check_connection(self, logger, config) -> Tuple[bool, any]:
+        """Check if the source is reachable"""
+        try:
+            self.clone_repo(config["repo_url"], "/tmp/repo")
+            gatsby_process = self.start_gatsby_server("/tmp/repo")
+            time.sleep(30)
+            self.stop_gatsby_server(gatsby_process)
             return True, None
         except Exception as e:
             logger.error(f"Connection check failed: {str(e)}")
             return False, str(e)
 
     def streams(self, config: Mapping[str, Any]) -> List[Stream]:
-        # return [TweagBlogStream(config=config)]
+        """Return a list of streams"""
         auth = None
-        clone_repo(config["repo_url"], "/tmp/repo")
+        logger.info("Cloning repository")
+        self.clone_repo(config["repo_url"], "/tmp/repo")
         time.sleep(20)
-        start_gatsby_server("/tmp/repo")
-        time.sleep(20)
+        self.free_port(12123)
+        logger.info("Starting Gatsby server")
+        self.start_gatsby_server("/tmp/repo")
+        logger.info("Waiting for Gatsby server to start")
+        time.sleep(60)
+        logger.info("Gatsby server started")
         return [TweagBlogStream(config=config, authenticator=auth)]
