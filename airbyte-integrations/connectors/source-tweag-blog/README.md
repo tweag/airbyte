@@ -37,14 +37,6 @@ poetry run source-tweag-blog discover --config secrets/config.json
 poetry run source-tweag-blog read --config secrets/config.json --catalog sample_files/configured_catalog.json
 ```
 
-### Running tests
-
-To run tests locally, from the connector directory run:
-
-```
-poetry run pytest tests
-```
-
 ### Building the docker image
 
 1. Install [`airbyte-ci`](https://github.com/airbytehq/airbyte/blob/master/airbyte-ci/connectors/pipelines/README.md)
@@ -65,19 +57,6 @@ docker run --rm -v $(pwd)/secrets:/secrets airbyte/source-tweag-blog:dev check -
 docker run --rm -v $(pwd)/secrets:/secrets airbyte/source-tweag-blog:dev discover --config /secrets/config.json
 docker run --rm -v $(pwd)/secrets:/secrets -v $(pwd)/integration_tests:/integration_tests airbyte/source-tweag-blog:dev read --config /secrets/config.json --catalog /integration_tests/configured_catalog.json
 ```
-
-### Running our CI test suite
-
-You can run our full test suite locally using [`airbyte-ci`](https://github.com/airbytehq/airbyte/blob/master/airbyte-ci/connectors/pipelines/README.md):
-
-```bash
-airbyte-ci connectors --name=source-tweag-blog test
-```
-
-### Customizing acceptance Tests
-
-Customize `acceptance-test-config.yml` file to configure acceptance tests. See [Connector Acceptance Tests](https://docs.airbyte.com/connector-development/testing-connectors/connector-acceptance-tests-reference) for more information.
-If your connector requires to create or destroy resources for use during acceptance tests create fixtures for it and place them inside integration_tests/acceptance.py.
 
 ### Dependency Management
 
