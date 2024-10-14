@@ -77,6 +77,12 @@ class TweagBlogStream(HttpStream, ABC):
             # Navigate to the data field
             data = response_json
             keys = self._data_field.split(".")
+            
+            if "edges" in response_json["data"]["allMarkdownRemark"]:
+                for item in response_json["data"]["allMarkdownRemark"]["edges"]:
+                    node = item["node"]
+                    # Add fileAbsolutePath to frontmatter
+                    node["frontmatter"]["fileAbsolutePath"] = node["fileAbsolutePath"]
 
             for key in keys:
                 if isinstance(data, list):
