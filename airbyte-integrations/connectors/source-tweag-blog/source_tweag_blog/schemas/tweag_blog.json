@@ -17,6 +17,9 @@
       },
       "type": "array"
     },
+    "fileAbsolutePath": {
+      "type": "string"
+    },
     "title": {
       "type": "string"
     },
