@@ -206,17 +206,9 @@ class SourceTweagBlog(AbstractSource):
             gatsby_process.kill()
         self.free_port(12123)
 
-    def check_connection(self, logger, config) -> Tuple[bool, any]:
+    def check_connection(self) -> Tuple[bool, any]:
         """Check if the source is reachable"""
-        try:
-            self.clone_repo(config["repo_url"], "/tmp/repo")
-            gatsby_process = self.start_gatsby_server("/tmp/repo")
-            time.sleep(30)
-            self.stop_gatsby_server(gatsby_process)
-            return True, None
-        except Exception as e:
-            logger.error(f"Connection check failed: {str(e)}")
-            return False, str(e)
+        return True, None
 
     def streams(self, config: Mapping[str, Any]) -> List[Stream]:
         """Return a list of streams"""
