@@ -168,17 +168,19 @@ class SourceTweagBlog(AbstractSource):
     def start_gatsby_server(self, repo_dir: str) -> subprocess.Popen:
         """Start the Gatsby server"""
         if not os.path.exists(os.path.join(repo_dir, "node_modules", ".bin", "gatsby")):
+            logger.info("Installing npm dependencies")
             subprocess.Popen(
                 ["npm", "install", "--legacy-peer-deps"],
                 cwd=repo_dir,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             ).wait()
+        logger.info("Starting Gatsby server")
         gatsby_process = subprocess.Popen(
             ["npx", "gatsby", "develop", "-H", "0.0.0.0", "--port=12123"],
             cwd=repo_dir,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
         return gatsby_process
 
@@ -217,7 +219,7 @@ class SourceTweagBlog(AbstractSource):
         self.clone_repo(config["repo_url"], "/tmp/repo")
         time.sleep(20)
         self.free_port(12123)
-        logger.info("Starting Gatsby server")
+        logger.info("Preparing for Gatsby server")
         self.start_gatsby_server("/tmp/repo")
         logger.info("Waiting for Gatsby server to start")
         time.sleep(60)
