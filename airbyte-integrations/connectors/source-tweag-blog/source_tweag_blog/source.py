@@ -165,6 +165,18 @@ class SourceTweagBlog(AbstractSource):
                 stderr=subprocess.DEVNULL,
             )
 
+    def wait_for_server(self, url: str, timeout: int = 120) -> bool:
+        """Wait for the Gatsby server to be ready."""
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                response = requests.get(url, timeout=5)
+                if response.status_code == 200:
+                    return True
+            except requests.ConnectionError:
+                time.sleep(5)  # Wait before retrying
+        return False
+
     def start_gatsby_server(self, repo_dir: str) -> subprocess.Popen:
         """Start the Gatsby server"""
         if not os.path.exists(os.path.join(repo_dir, "node_modules", ".bin", "gatsby")):
@@ -222,6 +234,8 @@ class SourceTweagBlog(AbstractSource):
         logger.info("Preparing for Gatsby server")
         self.start_gatsby_server("/tmp/repo")
         logger.info("Waiting for Gatsby server to start")
-        time.sleep(60)
+        if not self.wait_for_server("http://localhost:12123/__graphql", timeout=600):
+            logger.error("Gatsby server did not start in time.")
+            return []
         logger.info("Gatsby server started")
         return [TweagBlogStream(config=config, authenticator=auth)]
