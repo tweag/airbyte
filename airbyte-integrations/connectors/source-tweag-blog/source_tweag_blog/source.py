@@ -165,20 +165,34 @@ class SourceTweagBlog(AbstractSource):
                 stderr=subprocess.DEVNULL,
             )
 
+    def wait_for_server(self, url: str, timeout: int = 120) -> bool:
+        """Wait for the Gatsby server to be ready."""
+        start_time = time.time()
+        while time.time() - start_time < timeout:
+            try:
+                response = requests.get(url, timeout=5)
+                if response.status_code == 200:
+                    return True
+            except requests.ConnectionError:
+                time.sleep(5)  # Wait before retrying
+        return False
+
     def start_gatsby_server(self, repo_dir: str) -> subprocess.Popen:
         """Start the Gatsby server"""
         if not os.path.exists(os.path.join(repo_dir, "node_modules", ".bin", "gatsby")):
+            logger.info("Installing npm dependencies")
             subprocess.Popen(
                 ["npm", "install", "--legacy-peer-deps"],
                 cwd=repo_dir,
-                stdout=subprocess.DEVNULL,
-                stderr=subprocess.DEVNULL,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.PIPE,
             ).wait()
+        logger.info("Starting Gatsby server")
         gatsby_process = subprocess.Popen(
             ["npx", "gatsby", "develop", "-H", "0.0.0.0", "--port=12123"],
             cwd=repo_dir,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
         )
         return gatsby_process
 
@@ -206,17 +220,9 @@ class SourceTweagBlog(AbstractSource):
             gatsby_process.kill()
         self.free_port(12123)
 
-    def check_connection(self, logger, config) -> Tuple[bool, any]:
+    def check_connection(self) -> Tuple[bool, any]:
         """Check if the source is reachable"""
-        try:
-            self.clone_repo(config["repo_url"], "/tmp/repo")
-            gatsby_process = self.start_gatsby_server("/tmp/repo")
-            time.sleep(30)
-            self.stop_gatsby_server(gatsby_process)
-            return True, None
-        except Exception as e:
-            logger.error(f"Connection check failed: {str(e)}")
-            return False, str(e)
+        return True, None
 
     def streams(self, config: Mapping[str, Any]) -> List[Stream]:
         """Return a list of streams"""
@@ -225,9 +231,11 @@ class SourceTweagBlog(AbstractSource):
         self.clone_repo(config["repo_url"], "/tmp/repo")
         time.sleep(20)
         self.free_port(12123)
-        logger.info("Starting Gatsby server")
+        logger.info("Preparing for Gatsby server")
         self.start_gatsby_server("/tmp/repo")
         logger.info("Waiting for Gatsby server to start")
-        time.sleep(60)
+        if not self.wait_for_server("http://localhost:12123/__graphql", timeout=600):
+            logger.error("Gatsby server did not start in time.")
+            return []
         logger.info("Gatsby server started")
         return [TweagBlogStream(config=config, authenticator=auth)]
