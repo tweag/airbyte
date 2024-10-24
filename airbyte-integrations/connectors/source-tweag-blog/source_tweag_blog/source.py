@@ -220,7 +220,7 @@ class SourceTweagBlog(AbstractSource):
             gatsby_process.kill()
         self.free_port(12123)
 
-    def check_connection(self) -> Tuple[bool, any]:
+    def check_connection(self, logger, config) -> Tuple[bool, any]:
         """Check if the source is reachable"""
         return True, None
 
