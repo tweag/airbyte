@@ -181,8 +181,9 @@ class SourceTweagBlog(AbstractSource):
         """Start the Gatsby server"""
         if not os.path.exists(os.path.join(repo_dir, "node_modules", ".bin", "gatsby")):
             logger.info("Installing npm dependencies")
+            subprocess.Popen(["npm", "install", "--global", "yarn"], cwd=repo_dir).wait()
             subprocess.Popen(
-                ["npm", "install", "--legacy-peer-deps"],
+                ["yarn", "install"],
                 cwd=repo_dir,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
