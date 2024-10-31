@@ -181,8 +181,9 @@ class SourceTweagBlog(AbstractSource):
         """Start the Gatsby server"""
         if not os.path.exists(os.path.join(repo_dir, "node_modules", ".bin", "gatsby")):
             logger.info("Installing npm dependencies")
+            subprocess.Popen(["npm", "install", "--global", "yarn"], cwd=repo_dir).wait()
             subprocess.Popen(
-                ["npm", "install", "--legacy-peer-deps"],
+                ["yarn", "install"],
                 cwd=repo_dir,
                 stdout=subprocess.PIPE,
                 stderr=subprocess.PIPE,
@@ -220,7 +221,7 @@ class SourceTweagBlog(AbstractSource):
             gatsby_process.kill()
         self.free_port(12123)
 
-    def check_connection(self) -> Tuple[bool, any]:
+    def check_connection(self, logger, config) -> Tuple[bool, any]:
         """Check if the source is reachable"""
         return True, None
 
